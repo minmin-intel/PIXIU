@@ -347,6 +347,11 @@ Arguments explain:
 #### Automated Task Assessment
 Before evaluation, please download [BART checkpoint](https://drive.google.com/u/0/uc?id=1_7JfF7KOInb7ZrxKHIigTMR4ChVET01m&export=download) to `src/metrics/BARTScore/bart_score.pth`.
 
+```bash
+cd src/metrics/BARTScore/
+gdown https://drive.google.com/u/0/uc?id=1_7JfF7KOInb7ZrxKHIigTMR4ChVET01m&export=download
+```
+
 For automated evaluation, please follow these instructions:
 
 1. Huggingface Transformer
