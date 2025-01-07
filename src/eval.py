@@ -14,7 +14,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
     parser.add_argument("--model_args", default="")
-    parser.add_argument("--tasks", default=None, choices=utils.MultiChoice(tasks.ALL_TASKS))
+    parser.add_argument("--tasks", default=None) #, choices=utils.MultiChoice(tasks.ALL_TASKS))
     parser.add_argument("--model_prompt", default="no_prompt", choices=list(MODEL_PROMPT_MAP.keys()))
     parser.add_argument("--provide_description", action="store_true")
     parser.add_argument("--num_fewshot", type=int, default=0)
@@ -49,6 +49,8 @@ def main():
 
     if args.tasks is None:
         task_names = tasks.ALL_TASKS
+    elif args.tasks == "select":
+        task_names = tasks.SELECT_TASKS
     else:
         task_names = utils.pattern_match(args.tasks.split(","), tasks.ALL_TASKS)
 

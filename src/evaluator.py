@@ -214,7 +214,9 @@ def evaluate(
     docs_for_decontamination = collections.defaultdict(list)
 
     # get lists of each type of request
+    print("==== Process data for each task ====")
     for task_name, task in task_dict_items:
+        print(f"---- Begin Task: {task_name} -----")
         versions[task_name] = task.VERSION
         # default to test doc, fall back to val doc if validation unavailable
         # TODO: the test-fallback-to-val system isn't final, we should revisit it at some point
@@ -253,7 +255,7 @@ def evaluate(
                 docs_for_decontamination[(task_name, task_set)].append(
                     task.doc_to_decontamination_query(doc)
                 )
-            print("*** Doc: ", doc)
+            # print("*** Doc: ", doc)
             docs[(task_name, doc_id)] = doc
             ctx = task.fewshot_context(
                 doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description
@@ -266,19 +268,19 @@ def evaluate(
             else:
                 ctx = MODEL_PROMPT_MAP[model_prompt](ctx)
 
-            print("*** Context: ", ctx)
+            # print("*** Context: ", ctx)
             
             reqs = task.construct_requests(doc, ctx)
-            print("*** Requests: ", reqs)
+            # print("*** Requests: ", reqs)
             if write_out:
                 prompt_details.append({"doc_id": doc_id})
 
             # print the prompt for the first few documents
-            if doc_id < 1:
-                print(
-                    f"Task: {task_name}; document {doc_id}; context prompt (starting on next line):\n{ctx}\n(end of prompt on previous line)"
-                )
-                print("Requests:", reqs)
+            # if doc_id < 1:
+            #     print(
+            #         f"Task: {task_name}; document {doc_id}; context prompt (starting on next line):\n{ctx}\n(end of prompt on previous line)"
+            #     )
+            #     print("Requests:", reqs)
 
             if not isinstance(reqs, (list, tuple)):
                 reqs = [reqs]
@@ -302,8 +304,12 @@ def evaluate(
         if write_out:
             write_out_info[task_name] = prompt_details
 
+        print(f"---- End Task: {task_name} ----")
+
+
     # Compare all tasks/sets at once to ensure a single training set scan
     if decontaminate:
+        print("==== Decontaminate ====")
         from lm_eval.decontamination.decontaminate import get_train_overlap
 
         print("Finding train/test overlap, please wait...")
@@ -315,12 +321,13 @@ def evaluate(
     process_res_queue = collections.defaultdict(list)
 
     # execute each type of request
+    print("===== Generate responses for each request =====")
     for reqtype, reqs in requests.items():
         # TODO: right now, this code runs multiple separate LM requests for multiple Requests differing
         #       only in index. We could implement some kind of caching, but that would be more of a band-aid
         #       solution. we could also implement some kind of auto-grouping here;
         #       they should end up next to each other.
-
+        print("---- Request to LLM: ----\n", reqs)
         max_turns = max([val[-1] for val in requests_origin[reqtype]])
         print("Running", reqtype, "requests")
         print(f"Maximum {max_turns} turns")
@@ -339,15 +346,17 @@ def evaluate(
                 req = task.reformulate_turn_req(req, [(turn_requests.get((diag_id, t), None), t) for
 t in range(turn)], turn)
                 filtered_reqs.append([req, (i, task_name, doc, doc_id, diag_id, turn)])
+
+            print("---- Call LLM ----")
             if is_endpoint:
                 resps = lm.generate([req.args for req in reqs])
             else:
-                resps = getattr(lm, reqtype)([req.args for req in reqs])
+                resps = getattr(lm, reqtype)([req.args for req in reqs]) # use greedy_until method
                 resps = [
                     x if req[0].index is None else x[req[0].index] for x, req in zip(resps, filtered_reqs
     )
                 ]
-            print("*** Responses:\n", resps)
+            # print("*** Responses:\n", resps)
             for resp, req in zip(resps, filtered_reqs):
                 i, task_name, doc, doc_id, diag_id, turn = req[1]
                 task = task_dict[task_name]
@@ -366,20 +375,19 @@ t in range(turn)], turn)
                         ]
                     else:
                         write_out_info[task_name][doc_id]["truth"] = task.doc_to_target(doc)
+        print("---- End Request ----")
     vals = collections.defaultdict(list)
 
     # unpack results and sort back in order and return control to Task
+    print("====== Calculate metrics for each request =======")
     for (task_name, doc_id), requests in process_res_queue.items():
         requests.sort(key=lambda x: x[0])
         requests = [x[1] for x in requests]
 
         task = task_dict[task_name]
         doc = docs[(task_name, doc_id)]
-
-        print("====== Calculate metrics =======")
-        print("*** doc: "+ str(doc))
-        print("*** requests: "+ str(requests))
-
+        # print("*** doc: "+ str(doc))
+        # print("*** requests: "+ str(requests))
 
         metrics = task.process_results(doc, requests)
         print("*** Metrics: ", metrics)
@@ -393,8 +401,10 @@ t in range(turn)], turn)
             if decontaminate and task_name in overlaps:
                 if doc_id not in overlaps[task_name]:
                     vals[(task_name, metric + decontaminate_suffix)].append(value)
+        print("-"*50)
 
     # aggregate results
+    print("===== Aggregate metrics for each task =======")
     for (task_name, metric), items in vals.items():
         task = task_dict[task_name]
         real_metric = metric  # key when looking up the metric with task.aggregation

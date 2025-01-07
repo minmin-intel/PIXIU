@@ -60,6 +60,22 @@ TASK_REGISTRY = {
 
 ALL_TASKS = sorted(list(TASK_REGISTRY))
 
+SELECT_TASKS= [
+    "flare_ner",
+    "flare_finred",
+    "flare_cd",
+    # "flare_finqa",
+    # "flare_convfinqa",
+    "flare_fpb",
+    "flare_multi_fin_en",
+    "flare_sm_bigdata",
+    "flare_cra_lendingclub",
+    "flare_cra_ccfraud",
+    "flare_cra_polish",
+    "flare_cra_travelinsurace",
+    "flare_edtsum",
+]
+
 _EXAMPLE_JSON_PATH = "split:key:/absolute/path/to/data.json"
 
 

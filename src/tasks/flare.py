@@ -239,12 +239,17 @@ class SequentialLabeling(Task):
         return f1
 
     def process_label_result(self, pred, gold, tokens):
+        print("Pred text: ", pred)
         format_pred = [-1] * len(gold)
         for index, pre in enumerate(pred.split("\n")[: len(tokens)]):
+            print("Pred token: ", pre)
             try:
                 word, label = pre.split(":")
+                print("Word: ", word)
+                print("Label: ", label)
             except:
                 continue
+            print("Word should be: ", tokens[index])
             if word == tokens[index]:
                 format_pred[index] = self.LMAP.get(label, -1)
         return format_pred
@@ -258,6 +263,8 @@ class SequentialLabeling(Task):
         ]
         list_preds = [item for sublist in list_preds for item in sublist]
         golds = [self.LMAP[item] for sublist in golds for item in sublist]
+        print("Gold label: ", golds)
+        print("Pred label: ", list_preds)
         f1 = f1_score(golds, list_preds, average="weighted")
         return f1
 
@@ -370,7 +377,7 @@ class AbstractiveSummarization(Task):
 
     def bart_score(self, items):
         golds, preds = zip(*items)
-        bart_scorer = BARTScorer(device="cuda", checkpoint="facebook/bart-large-cnn")
+        bart_scorer = BARTScorer(device="cpu", checkpoint="facebook/bart-large-cnn")
         bart_scorer.load(path="src/metrics/BARTScore/bart_score.pth")
         res = bart_scorer.score(srcs=preds, tgts=golds, batch_size=8)
         return sum(res) / len(res)
