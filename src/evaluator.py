@@ -71,13 +71,17 @@ def simple_evaluate(
 
     assert len(tasks) != 0, "No tasks specified"
 
+    is_endpoint=False
     if isinstance(model, str):
         if model_args is None:
             model_args = ""
-        if model[:3] != "gpt":
+        if model[:3] != "gpt" and model !="endpoint":
             lm = lm_eval.models.get_model(model).create_from_arg_string(
                 model_args, {"batch_size": batch_size, "max_batch_size": max_batch_size, "device": device}
             )
+        if model == "endpoint":
+            lm = lm_eval.models.get_model(model).create_from_arg_string(model_args)
+            is_endpoint=True
         else:
             lm = ChatLM(model)
     else:
@@ -109,7 +113,8 @@ def simple_evaluate(
         decontamination_ngrams_path=decontamination_ngrams_path,
         write_out=write_out,
         output_base_path=output_base_path,
-        model_prompt=model_prompt
+        model_prompt=model_prompt,
+        is_endpoint=is_endpoint
     )
 
     # add info about the model and few shot config
@@ -144,7 +149,8 @@ def evaluate(
     decontamination_ngrams_path=None,
     write_out=False,
     output_base_path=None,
-    model_prompt=None
+    model_prompt=None,
+    is_endpoint=False
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -247,16 +253,23 @@ def evaluate(
                 docs_for_decontamination[(task_name, task_set)].append(
                     task.doc_to_decontamination_query(doc)
                 )
-
+            print("*** Doc: ", doc)
             docs[(task_name, doc_id)] = doc
             ctx = task.fewshot_context(
                 doc=doc, num_fewshot=num_fewshot, rnd=rnd, description=description
             )
+            if is_endpoint:
+                try:
+                    ctx = MODEL_PROMPT_MAP[f"{task_name}_prompt"](doc["text"])
+                except:
+                    ctx = MODEL_PROMPT_MAP[model_prompt](ctx)
+            else:
+                ctx = MODEL_PROMPT_MAP[model_prompt](ctx)
 
-            ctx = MODEL_PROMPT_MAP[model_prompt](ctx)
+            print("*** Context: ", ctx)
             
             reqs = task.construct_requests(doc, ctx)
-
+            print("*** Requests: ", reqs)
             if write_out:
                 prompt_details.append({"doc_id": doc_id})
 
@@ -326,13 +339,15 @@ def evaluate(
                 req = task.reformulate_turn_req(req, [(turn_requests.get((diag_id, t), None), t) for
 t in range(turn)], turn)
                 filtered_reqs.append([req, (i, task_name, doc, doc_id, diag_id, turn)])
-
-            resps = getattr(lm, reqtype)([req.args for req in reqs])
-            resps = [
-                x if req[0].index is None else x[req[0].index] for x, req in zip(resps, filtered_reqs
-)
-            ]
-
+            if is_endpoint:
+                resps = lm.generate([req.args for req in reqs])
+            else:
+                resps = getattr(lm, reqtype)([req.args for req in reqs])
+                resps = [
+                    x if req[0].index is None else x[req[0].index] for x, req in zip(resps, filtered_reqs
+    )
+                ]
+            print("*** Responses:\n", resps)
             for resp, req in zip(resps, filtered_reqs):
                 i, task_name, doc, doc_id, diag_id, turn = req[1]
                 task = task_dict[task_name]
@@ -360,11 +375,14 @@ t in range(turn)], turn)
 
         task = task_dict[task_name]
         doc = docs[(task_name, doc_id)]
-        print("doc: "+ str(doc))
-        print("requests: "+ str(requests))
+
+        print("====== Calculate metrics =======")
+        print("*** doc: "+ str(doc))
+        print("*** requests: "+ str(requests))
 
 
         metrics = task.process_results(doc, requests)
+        print("*** Metrics: ", metrics)
         for metric, value in metrics.items():
             vals[(task_name, metric)].append(value)
 
@@ -388,6 +406,8 @@ t in range(turn)], turn)
         results[task_name][metric] = task.aggregation()[real_metric](items)
         # hotfix: bleu, chrf, ter seem to be really expensive to bootstrap
         # so we run them less iterations. still looking for a cleaner way to do this
+
+        print(f"*** Task: {task_name}; Metric: {metric}; Value: {results[task_name][metric]}")
 
         stderr = lm_eval.metrics.stderr_for_metric(
             metric=task.aggregation()[real_metric],

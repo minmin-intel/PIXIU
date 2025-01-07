@@ -1,4 +1,7 @@
 def process_text(entity_string, text):
+    print("======= process_text =======")
+    print("*** entity_string: ", entity_string)
+    print("*** text: ", text)
     # Initialize
     entity_list = [(", ".join(val.split(", ")[:-1]), val.split(", ")[-1]) for val in entity_string.split("\n")]
     text_words = text.split()
@@ -12,7 +15,7 @@ def process_text(entity_string, text):
         word_indices.append(word_indices[-1] + len(word) + 1)
 
     # Iterate over the entity list
-    print (entity_list)
+    print("*** Entity list: ", entity_list)
     for entity, entity_type in entity_list:
         entity_words = entity.split()
         entity_lower = entity
