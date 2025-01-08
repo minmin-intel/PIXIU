@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import tasks
+import time
 
 from lm_eval import utils
 import evaluator
@@ -38,6 +39,7 @@ def parse_args():
 
 
 def main():
+    t0 = time.time()
     args = parse_args()
 
     assert not args.provide_description  # not implemented
@@ -93,6 +95,8 @@ def main():
         f"num_fewshot: {args.num_fewshot}, batch_size: {args.batch_size}{f' ({batch_sizes})' if batch_sizes else ''}"
     )
     print(evaluator.make_table(results))
+    t_end = time.time()
+    print(f"Total time: {t_end - t0:.2f}s")
 
 
 if __name__ == "__main__":

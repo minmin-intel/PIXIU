@@ -67,7 +67,7 @@ SELECT_TASKS= [
     # "flare_finqa",
     # "flare_convfinqa",
     "flare_fpb",
-    "flare_multi_fin_en",
+    "flare_multifin_en",
     "flare_sm_bigdata",
     "flare_cra_lendingclub",
     "flare_cra_ccfraud",
